@@ -2,3 +2,5 @@ node_modules
 dist
 /data
 /out
+.env
+*.secret.json

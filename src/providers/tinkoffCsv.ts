@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import fsExtra from 'fs-extra';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Transaction } from '../types';
+import { Transaction, DataProvider } from '../types';
 
 dayjs.extend(customParseFormat);
 const parseCsv = promisify(parse) as (csv: string, params: any) => Promise<string[][]>;
@@ -20,8 +20,10 @@ const CSV_FIELDS = {
 };
 
 function mapCsvRow(row: string[]): Transaction {
+  const dateObj = dayjs(row[CSV_FIELDS.DATETIME], 'DD.MM.YYYY HH:mm:ss');
 	return {
-		date: dayjs(row[CSV_FIELDS.DATETIME], 'DD.MM.YYYY HH:mm:ss').toDate(),
+		date: dateObj.toDate(),
+    dateKey: dateObj.format('YYYY-MM'),
 		amount: parseFloat(row[CSV_FIELDS.SUMM].replace(/ /g, '').replace(/,/g, '.')),
 		currency: row[CSV_FIELDS.CURRENCY],
 		category: row[CSV_FIELDS.CATEGORY],
@@ -45,4 +47,11 @@ async function loadCsv(filePath: string) {
 export async function getDataFromCsvFile(filePath: string): Promise<Transaction[]> {
 	const csv = await loadCsv(filePath);
 	return getData(csv);
+}
+
+export class TinkoffCsvDataProvider implements DataProvider {
+  async getDataFromFile(filePath: string): Promise<Transaction[]> {
+    const csv = await loadCsv(filePath);
+    return getData(csv);
+  }
 }

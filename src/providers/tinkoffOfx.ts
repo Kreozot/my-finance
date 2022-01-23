@@ -2,7 +2,7 @@ import ofx from 'ofx';
 import fsExtra from 'fs-extra';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Transaction } from '../types';
+import { Transaction, DataProvider } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -23,17 +23,19 @@ const loadOfx = async (filePath: string) => {
 
 const parseDateTime = (dateTimeStr: string) => {
   const modifiedDateTimeStr = dateTimeStr.replace(/\[([+-]?)([0-9]+):[A-Z]+\]$/, ' $1');
-  return dayjs(modifiedDateTimeStr, 'YYYYMMDDHHmmss.SSS ZZ').toDate(); //"20220108131638.000[+3:MSK]"
+  return dayjs(modifiedDateTimeStr, 'YYYYMMDDHHmmss.SSS ZZ'); //"20220108131638.000[+3:MSK]"
 };
 
 const parseAmount = (amountStr: string) => {
   return parseInt(amountStr, 10);
 };
 
-const loadTransactions = (ofxTransactions: OfxTransaction[]) => {
+const loadTransactions = (ofxTransactions: OfxTransaction[]): Transaction[] => {
   return ofxTransactions.map((STMTTRN) => {
+    const dateObj = parseDateTime(STMTTRN.DTPOSTED);
     return {
-      date: parseDateTime(STMTTRN.DTPOSTED),
+      date: dateObj.toDate(),
+      dateKey: dateObj.format('YYYY-MM'),
       amount: parseAmount(STMTTRN.TRNAMT),
       name: STMTTRN.NAME,
       category: STMTTRN.MEMO,
@@ -44,13 +46,13 @@ const loadTransactions = (ofxTransactions: OfxTransaction[]) => {
 
 const processOfx = (ofx: Ofx) => {
   const { BANKTRANLIST } = ofx.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS;
-  // const startDate = parseDateTime(BANKTRANLIST.DTSTART);
-  // const endDate = parseDateTime(BANKTRANLIST.DTEND);
   const transactions = loadTransactions(BANKTRANLIST.STMTTRN);
   return transactions;
 };
 
-export const getDataFromOfxFile = async (filePath: string): Promise<Transaction[]> => {
-  const ofx = await loadOfx(filePath);
-  return processOfx(ofx);
+export class TinkoffOfxDataProvider implements DataProvider {
+  async getDataFromFile(filePath: string): Promise<Transaction[]> {
+    const ofx = await loadOfx(filePath);
+    return processOfx(ofx);
+  }
 }
