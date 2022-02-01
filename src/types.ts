@@ -23,3 +23,11 @@ export type TransactionsSum = {
 export interface DataProvider {
   getDataFromFile: (filePath: string) => Promise<Transaction[]>;
 };
+
+export type GroupedTransactions = {
+  [dateKey: string]: {
+      [groupName: string]: {
+          [categoryName: string]: number;
+      };
+  };
+};

@@ -3,7 +3,7 @@ import inquirerFuzzyPath from 'inquirer-fuzzy-path';
 import fsExtra from 'fs-extra';
 import path from 'path';
 import { groupBy, mapValues } from 'lodash';
-import { DataProvider, Transaction, TransactionsSum } from './types';
+import { DataProvider, GroupedTransactions, Transaction, TransactionsSum } from './types';
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { TinkoffOfxDataProvider } from './providers/tinkoffOfx';
 import { exportData } from './googleApi';
@@ -35,7 +35,7 @@ const convertMoney = (amount: number, currency: string): number => {
   return amount;
 }
 
-const groupTransactions = (transactions: Transaction[]) => {
+const groupTransactions = (transactions: Transaction[]): GroupedTransactions => {
   const dateGroups = groupBy(transactions, 'dateKey');
   const dateCategoryGroups = mapValues(dateGroups, (dateGroup) => {
     const categoryGroups = groupBy(dateGroup, 'category');
@@ -70,12 +70,12 @@ const start = async () => {
   const filePath = await chooseFile();
   const dataProvider = getDataProvider(filePath);
   const transactions = await dataProvider.getDataFromFile(filePath);
-
   const groups = groupTransactions(transactions);
-  await exportData();
+
+  await exportData(groups);
   await fsExtra.ensureDir('out');
   await fsExtra.writeFile('out/transactions.json', JSON.stringify(groups, null, 2));
 };
 
-// start();
-exportData();
+start();
+// exportData();

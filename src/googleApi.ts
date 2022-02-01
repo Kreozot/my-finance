@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import dotEnv from 'dotenv';
 import path from 'path';
+import { GroupedTransactions } from './types';
 
 dotEnv.config();
 
@@ -72,7 +73,7 @@ class GoogleSheet {
     this.sheets = await authenticateSheets();
   }
 
-  async getCategoryColumns() {
+  async getCategoryStructure() {
     const res = await this.sheets.spreadsheets.get({
       ranges: ['Лист1'],
       spreadsheetId: GOOGLE_SHEET_ID,
@@ -81,8 +82,6 @@ class GoogleSheet {
     const sheet = res.data.sheets[0];
     const merges = sheet.merges;
     const rowData = sheet.data[0].rowData;
-    console.log(JSON.stringify(merges, null, 2));
-    console.log(JSON.stringify(rowData, null, 2));
 
     const { categoryStructure } = rowData.reduce(
       (result, row, rowIndex) => {
@@ -137,12 +136,12 @@ class GoogleSheet {
 
 
 
-export const exportData = async () => {
+export const exportData = async (transactions: GroupedTransactions) => {
   const googleSheet = new GoogleSheet();
   await googleSheet.authenticate();
-  const categoryColumns =  await googleSheet.getCategoryColumns();
+  const categoryStructure =  await googleSheet.getCategoryStructure();
 
-  console.log(JSON.stringify(categoryColumns, null, 2));
+  console.log(JSON.stringify(categoryStructure, null, 2));
   // const sheets = await authenticateSheets();
   // console.log(1);
   // const range = await sheets.spreadsheets.values.get({
