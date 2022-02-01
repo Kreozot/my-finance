@@ -6,9 +6,11 @@ dotEnv.config();
 
 const { GOOGLE_SHEET_ID } = process.env;
 const DATA_START_ROW_INDEX = 1;
+const GROUP_COLUMN_INDEX = 0;
+const CATEGORY_COLUMN_INDEX = 1;
 
 type GroupColumn = {
-  name: string,
+  // name: string,
   startRowIndex: number,
   endRowIndex: number,
 };
@@ -17,8 +19,7 @@ type GroupColumns = {
 };
 
 type CategoryColumn = {
-  groupName: string,
-  name: string,
+  // name: string,
   rowIndex: number,
 };
 type CategoryColumns = {
@@ -54,7 +55,8 @@ const authenticateSheets = async () => {
 const findRowMerge = (merges: Merge[], rowIndex: number) => {
   return merges.find((merge) => {
     return merge.startRowIndex <= rowIndex
-      && merge.endRowIndex >= rowIndex;
+    // Google указывает endRowIndex как индекс следующей за объединением строки
+      && merge.endRowIndex > rowIndex;
   });
 };
 
@@ -71,41 +73,65 @@ class GoogleSheet {
   }
 
   async getCategoryColumns() {
-    const res = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: GOOGLE_SHEET_ID,
-      range: 'Лист1',
-      majorDimension: 'COLUMNS',
-    });
-
-    const res2 = await this.sheets.spreadsheets.get({
+    const res = await this.sheets.spreadsheets.get({
       ranges: ['Лист1'],
       spreadsheetId: GOOGLE_SHEET_ID,
       includeGridData: true,
     });
-    const sheet = res2.data.sheets[0];
+    const sheet = res.data.sheets[0];
     const merges = sheet.merges;
     const rowData = sheet.data[0].rowData;
     console.log(JSON.stringify(merges, null, 2));
     console.log(JSON.stringify(rowData, null, 2));
 
-    let groupColumns: GroupColumns;
-    let categoryColumns: CategoryColumns;
-    rowData.forEach((row, rowIndex) => {
-      if (rowIndex < DATA_START_ROW_INDEX) {
-        return;
-      }
-      const groupName = row.values[0].formattedValue;
-      if (groupName) {
-        const merge = findRowMerge(merges as Merge[], rowIndex);
-        groupColumns[groupName] = {
-          name: groupName,
-          startRowIndex: merge ? merge.startRowIndex : rowIndex,
-          endRowIndex: merge ? merge.endRowIndex : rowIndex,
-        };
-      }
-    });
+    const { categoryStructure } = rowData.reduce(
+      (result, row, rowIndex) => {
+        if (rowIndex < DATA_START_ROW_INDEX) {
+          return result;
+        }
 
-    return res.data.values[0];
+        const groupName = row.values[GROUP_COLUMN_INDEX].formattedValue;
+        const categoryName = row.values[CATEGORY_COLUMN_INDEX].formattedValue;
+        // Если есть значение ячейки в колонке группы, значит это начало группы
+        if (typeof groupName !== 'undefined') {
+          result.lastGroupName = groupName;
+          const merge = findRowMerge(merges as Merge[], rowIndex);
+          result.categoryStructure[groupName] = {
+            startRowIndex: merge ? merge.startRowIndex : rowIndex,
+            // -1 Потому что Google почему-то указывает endRowIndex от следующей строки
+            endRowIndex: merge ? merge.endRowIndex - 1 : rowIndex,
+            categories: {
+              [categoryName]: {
+                rowIndex,
+              },
+            },
+          };
+        // Иначе это продолжение предыдущей группы
+        } else {
+          const lastGroup = result.categoryStructure[result.lastGroupName];
+          if (lastGroup.startRowIndex <= rowIndex
+            && lastGroup.endRowIndex >= rowIndex) {
+            lastGroup.categories[categoryName] = {
+              rowIndex,
+            };
+          } else {
+            throw new Error(`Неправильный работа с объединениями ячеек в группе категорий для строки ${rowIndex} (категория ${categoryName}, группа ${result.lastGroupName} с диапазоном ${lastGroup.startRowIndex} - ${lastGroup.endRowIndex})`);
+          }
+        }
+        return result;
+      },
+      {
+        categoryStructure: {},
+        lastGroupName: '',
+      } as {
+        /** Структура категорий */
+        categoryStructure: CategoryStructure,
+        /** Название последней группы для передачи между итерациями */
+        lastGroupName: string
+      }
+    );
+
+    return categoryStructure;
   }
 }
 
@@ -116,7 +142,7 @@ export const exportData = async () => {
   await googleSheet.authenticate();
   const categoryColumns =  await googleSheet.getCategoryColumns();
 
-  console.log(categoryColumns);
+  console.log(JSON.stringify(categoryColumns, null, 2));
   // const sheets = await authenticateSheets();
   // console.log(1);
   // const range = await sheets.spreadsheets.values.get({
