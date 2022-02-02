@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/Kreozot/my-finance#readme",
   "dependencies": {
+    "@flighter/a1-notation": "^2.1.2",
     "@types/inquirer-fuzzy-path": "^2.3.3",
     "csv-parse": "^5.0.4",
     "dayjs": "^1.10.7",

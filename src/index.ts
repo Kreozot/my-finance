@@ -77,5 +77,5 @@ const start = async () => {
   await fsExtra.writeFile('out/transactions.json', JSON.stringify(groups, null, 2));
 };
 
-start();
-// exportData();
+// start();
+exportData({});

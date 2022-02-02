@@ -1,7 +1,11 @@
 import { google } from 'googleapis';
 import dotEnv from 'dotenv';
 import path from 'path';
+import a1 from '@flighter/a1-notation';
+
 import { GroupedTransactions } from './types';
+import dayjs from 'dayjs';
+import { serialToDateUTC } from './dateTime';
 
 dotEnv.config();
 
@@ -9,27 +13,36 @@ const { GOOGLE_SHEET_ID } = process.env;
 const DATA_START_ROW_INDEX = 1;
 const GROUP_COLUMN_INDEX = 0;
 const CATEGORY_COLUMN_INDEX = 1;
+const DATE_START_COLUMN_INDEX = 2;
+const DATE_ROW_INDEX = 0;
+const LIST_NAME = 'Лист1';
 
-type GroupColumn = {
+type GroupRow = {
   // name: string,
   startRowIndex: number,
   endRowIndex: number,
 };
-type GroupColumns = {
-  [name: string]: GroupColumn,
+type GroupRows = {
+  [name: string]: GroupRow,
 };
 
-type CategoryColumn = {
+type CategoryRow = {
   // name: string,
   rowIndex: number,
 };
 type CategoryColumns = {
-  [name: string]: CategoryColumn,
+  [name: string]: CategoryRow,
 };
 
 type CategoryStructure = {
-  [groupName: string]: GroupColumn & {
+  [groupName: string]: GroupRow & {
     categories: CategoryColumns,
+  },
+};
+
+type DateColumns = {
+  [dateKey: string]: {
+    columnIndex: number,
   },
 };
 
@@ -61,6 +74,29 @@ const findRowMerge = (merges: Merge[], rowIndex: number) => {
   });
 };
 
+const getRangeNotation = (
+  rowStartIndex: number, colStartIndex: number,
+  rowEndIndex?: number, colEndIndex?: number
+): string => {
+  if (typeof rowStartIndex === 'undefined' || typeof colStartIndex === 'undefined') {
+    throw new Error('Не задано начало диапазона');
+  }
+  if (typeof rowEndIndex === 'undefined' && typeof colEndIndex === 'undefined') {
+    throw new Error('Должна быть задана хотя бы одна координата конца диапазона');
+  }
+
+  const colStartName = a1.toCol(colStartIndex + 1);
+  if (typeof colEndIndex === 'undefined') {
+    return `'${LIST_NAME}'!${colStartName}${rowStartIndex + 1}:${rowEndIndex + 1}`;
+  }
+  if (typeof rowEndIndex === 'undefined') {
+    const colEndName = a1.toCol(colEndIndex + 1);
+    return `'${LIST_NAME}'!${colStartName}${rowStartIndex + 1}:${colEndName}`;
+  }
+  const colEndName = a1.toCol(colEndIndex + 1);
+  return `'${LIST_NAME}'!${colStartName}${rowStartIndex + 1}:${colEndName}${rowEndIndex + 1}`;
+}
+
 class GoogleSheet {
   sheets: Awaited<ReturnType<typeof authenticateSheets>>;
   spreadsheetId: string;
@@ -73,10 +109,29 @@ class GoogleSheet {
     this.sheets = await authenticateSheets();
   }
 
-  async getCategoryStructure() {
-    const res = await this.sheets.spreadsheets.get({
-      ranges: ['Лист1'],
+  async getDateColumns(): Promise<DateColumns> {
+    const res = await this.sheets.spreadsheets.values.get({
       spreadsheetId: GOOGLE_SHEET_ID,
+      range: getRangeNotation(DATE_ROW_INDEX, DATE_START_COLUMN_INDEX, DATE_ROW_INDEX),
+      majorDimension: 'ROWS',
+      valueRenderOption: 'FORMULA',
+    });
+    const dates = res.data.values[0].map(serialToDateUTC);
+    return dates.reduce((result, date, index) => {
+      const dateKey = dayjs(date).format('YYYY-MM');
+      result[dateKey] = {
+        columnIndex: DATE_START_COLUMN_INDEX + index,
+      };
+      return result;
+    }, {} as DateColumns);
+  }
+
+  async getCategoryStructure(): Promise<CategoryStructure> {
+    const res = await this.sheets.spreadsheets.get({
+      spreadsheetId: GOOGLE_SHEET_ID,
+      ranges: [LIST_NAME],
+      // TODO: Исправить работу с индексами строк при использовании диапазона
+      // ranges: [getRangeNotation(DATA_START_ROW_INDEX, GROUP_COLUMN_INDEX, undefined, CATEGORY_COLUMN_INDEX)],
       includeGridData: true,
     });
     const sheet = res.data.sheets[0];
@@ -114,7 +169,7 @@ class GoogleSheet {
               rowIndex,
             };
           } else {
-            throw new Error(`Неправильный работа с объединениями ячеек в группе категорий для строки ${rowIndex} (категория ${categoryName}, группа ${result.lastGroupName} с диапазоном ${lastGroup.startRowIndex} - ${lastGroup.endRowIndex})`);
+            throw new Error(`Неправильная работа с объединениями ячеек в группе категорий для строки ${rowIndex} (категория ${categoryName}, группа ${result.lastGroupName} с диапазоном ${lastGroup.startRowIndex} - ${lastGroup.endRowIndex})`);
           }
         }
         return result;
@@ -140,8 +195,10 @@ export const exportData = async (transactions: GroupedTransactions) => {
   const googleSheet = new GoogleSheet();
   await googleSheet.authenticate();
   const categoryStructure =  await googleSheet.getCategoryStructure();
-
-  console.log(JSON.stringify(categoryStructure, null, 2));
+  const dateColumns = await googleSheet.getDateColumns();
+  console.log(categoryStructure);
+  console.log(dateColumns);
+  // console.log(JSON.stringify(categoryStructure, null, 2));
   // const sheets = await authenticateSheets();
   // console.log(1);
   // const range = await sheets.spreadsheets.values.get({
@@ -149,7 +206,7 @@ export const exportData = async (transactions: GroupedTransactions) => {
   // })
   // const spreadsheet = await sheets.spreadsheets.values.update({
   //   spreadsheetId: GOOGLE_SHEET_ID,
-  //   range: 'Лист1',
+  //   range: LIST_NAME,
   //   valueInputOption: 'USER_ENTERED',
   //   requestBody: {
   //     values: [
@@ -159,6 +216,4 @@ export const exportData = async (transactions: GroupedTransactions) => {
   //     ]
   //   }
   // });
-
-  console.log(2);
 }
