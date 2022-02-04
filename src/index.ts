@@ -2,8 +2,10 @@ import inquirer from 'inquirer';
 import inquirerFuzzyPath from 'inquirer-fuzzy-path';
 import fsExtra from 'fs-extra';
 import path from 'path';
-import { groupBy, mapValues } from 'lodash';
-import { DataProvider, GroupedTransactions, Transaction, TransactionsSum } from './types';
+import { groupBy, mapValues, values, flatten } from 'lodash';
+import {
+  DataProvider, DateSumMap, GroupedTransactions, TableTransaction, Transaction, TransactionsSum,
+} from './types';
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { TinkoffOfxDataProvider } from './providers/tinkoffOfx';
 import { exportData } from './googleApi';
@@ -51,8 +53,31 @@ const groupTransactions = (transactions: Transaction[]): GroupedTransactions => 
     return categoryNameGroups;
   });
 
-
   return dateCategoryGroups;
+};
+
+const getTableTransactions = (transactions: Transaction[]): TableTransaction[] => {
+  const categoryGroups = groupBy(transactions, 'category');
+  const categoryNameGroups = mapValues(categoryGroups, (categoryGroup, category): TableTransaction[] => {
+    const nameGroups = groupBy(categoryGroup, 'name');
+    const categoryNameGroups = mapValues(nameGroups, (nameGroup, name): TableTransaction => {
+      const dateGroups = groupBy(nameGroup, 'dateKey');
+      const transactions: DateSumMap = mapValues(dateGroups, (transactions): number => {
+        const sum = transactions.reduce((result, transaction) => {
+          return result + convertMoney(transaction.amount, transaction.currency);
+        }, 0);
+        return Math.round(sum);
+      });
+      return {
+        category,
+        name,
+        transactions,
+      };
+    });
+    return values(categoryNameGroups);
+  });
+
+  return flatten(values(categoryNameGroups));
 };
 
 const getDataProvider = (filePath: string): DataProvider => {
@@ -71,11 +96,14 @@ const start = async () => {
   const dataProvider = getDataProvider(filePath);
   const transactions = await dataProvider.getDataFromFile(filePath);
   const groups = groupTransactions(transactions);
+  const table = getTableTransactions(transactions);
 
-  await exportData(groups);
+  // await exportData(groups);
   await fsExtra.ensureDir('out');
-  await fsExtra.writeFile('out/transactions.json', JSON.stringify(groups, null, 2));
+  await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
+  await fsExtra.writeFile('out/groups.json', JSON.stringify(groups, null, 2));
+  await fsExtra.writeFile('out/table.json', JSON.stringify(table, null, 2));
 };
 
-// start();
-exportData({});
+start();
+// exportData({});

@@ -26,8 +26,18 @@ export interface DataProvider {
 
 export type GroupedTransactions = {
   [dateKey: string]: {
-      [groupName: string]: {
-          [categoryName: string]: number;
-      };
-  };
+      [category: string]: {
+          [name: string]: number,
+      },
+  },
+};
+
+export type DateSumMap = {
+  [dateKey: string]: number,
+};
+
+export type TableTransaction = {
+  category: string,
+  name: string,
+  transactions: DateSumMap,
 };
