@@ -2,13 +2,14 @@ import inquirer from 'inquirer';
 import inquirerFuzzyPath from 'inquirer-fuzzy-path';
 import fsExtra from 'fs-extra';
 import path from 'path';
-import { groupBy, mapValues, values, flatten } from 'lodash';
 import {
-  DataProvider, DateSumMap, GroupedTransactions, TableTransaction, Transaction, TransactionsSum,
+  groupBy, mapValues, values, flatten,
+} from 'lodash';
+import {
+  DataProvider, DateSumMap, TableTransaction, Transaction,
 } from './types';
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { TinkoffOfxDataProvider } from './providers/tinkoffOfx';
-import { exportData } from './googleApi';
 
 inquirer.registerPrompt('fuzzypath', inquirerFuzzyPath);
 
@@ -31,19 +32,19 @@ const chooseFile = async () => {
 
 const convertMoney = (amount: number, currency: string): number => {
   if (currency !== OUT_CURRENCY) {
-    console.warn(`Отличающаяся валюта ${currency}`)
+    console.warn(`Отличающаяся валюта ${currency}`);
   }
   // TODO: Конвертация валюты
   return amount;
-}
+};
 
-const getTableTransactions = (transactions: Transaction[]): TableTransaction[] => {
-  const categoryGroups = groupBy(transactions, 'category');
+const getTableTransactions = (originalTransactions: Transaction[]): TableTransaction[] => {
+  const categoryGroups = groupBy(originalTransactions, 'category');
   const categoryNameGroups = mapValues(categoryGroups, (categoryGroup, category): TableTransaction[] => {
     const nameGroups = groupBy(categoryGroup, 'name');
-    const categoryNameGroups = mapValues(nameGroups, (nameGroup, name): TableTransaction => {
+    const nameDateGroups = mapValues(nameGroups, (nameGroup, name): TableTransaction => {
       const dateGroups = groupBy(nameGroup, 'dateKey');
-      const transactions: DateSumMap = mapValues(dateGroups, (transactions): number => {
+      const transactionsSummary: DateSumMap = mapValues(dateGroups, (transactions): number => {
         const sum = transactions.reduce((result, transaction) => {
           return result + convertMoney(transaction.amount, transaction.currency);
         }, 0);
@@ -52,10 +53,10 @@ const getTableTransactions = (transactions: Transaction[]): TableTransaction[] =
       return {
         category,
         name,
-        transactions,
+        transactions: transactionsSummary,
       };
     });
-    return values(categoryNameGroups);
+    return values(nameDateGroups);
   });
 
   return flatten(values(categoryNameGroups));
@@ -70,7 +71,7 @@ const getDataProvider = (filePath: string): DataProvider => {
     default:
       throw new Error('Поддерживаются только OFX или CSV файлы');
   }
-}
+};
 
 const start = async () => {
   const filePath = await chooseFile();
