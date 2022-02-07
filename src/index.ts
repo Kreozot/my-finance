@@ -84,7 +84,6 @@ const filterRevertTransactions = (transactions: Transaction[]) => {
     const revertTransaction = find(transactions, (transaction2) => {
       const isRevert = transaction1.amount === -transaction2.amount
         && transaction1.name === transaction2.name
-        && transaction1.category === transaction2.category
         && transaction1.currency === transaction2.currency;
       // Если нашли транзакцию отката
       if (isRevert) {
@@ -93,7 +92,7 @@ const filterRevertTransactions = (transactions: Transaction[]) => {
           revertedPairs,
           (reverted) => isEqual(transaction2, reverted),
         ));
-        // Если нет, то запоминаем индекс этой транзакции
+        // Если нет, то возвращаем её
         return !isAlreadyFound;
       }
       return false;
