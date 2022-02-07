@@ -95,14 +95,16 @@ const start = async () => {
   const filePath = await chooseFile();
   const dataProvider = getDataProvider(filePath);
   const transactions = await dataProvider.getDataFromFile(filePath);
-  const groups = groupTransactions(transactions);
-  const table = getTableTransactions(transactions);
+  // const groups = groupTransactions(transactions);
+  const tableIncome = getTableTransactions(transactions.filter((transaction) => transaction.amount > 0));
+  const tableExpenses = getTableTransactions(transactions.filter((transaction) => transaction.amount < 0));
 
   // await exportData(groups);
   await fsExtra.ensureDir('out');
   await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
-  await fsExtra.writeFile('out/groups.json', JSON.stringify(groups, null, 2));
-  await fsExtra.writeFile('out/table.json', JSON.stringify(table, null, 2));
+  // await fsExtra.writeFile('out/groups.json', JSON.stringify(groups, null, 2));
+  await fsExtra.writeFile('out/tableIncome.json', JSON.stringify(tableIncome, null, 2));
+  await fsExtra.writeFile('out/tableExpenses.json', JSON.stringify(tableExpenses, null, 2));
 };
 
 start();
