@@ -4,7 +4,7 @@ import fsExtra from 'fs-extra';
 import path from 'path';
 import {
   groupBy, mapValues, values, flatten,
-  uniqWith, isEqual,
+  uniqWith, isEqual, find,
 } from 'lodash';
 
 import {
@@ -76,40 +76,58 @@ const getDataProvider = (filePath: string): DataProvider => {
   }
 };
 
-const filterRevertTransactions = (transactions: Transaction[]): Transaction[] => {
-  const duplicatePairs: Transaction[] = [];
-  const duplicateFreeTransactions = uniqWith(transactions, (transaction1, transaction2) => {
-    const result = transaction1.amount === -transaction2.amount
-      && transaction1.name === transaction2.name
-      && transaction1.category === transaction2.category
-      && transaction1.currency === transaction2.currency;
-
-    if (result) {
-      duplicatePairs.push({ ...transaction2 });
+const filterRevertTransactions = (transactions: Transaction[]) => {
+  const revertedPairs: Transaction[] = [];
+  // Проходим по массиву транзакций
+  transactions.forEach((transaction1, index1) => {
+    // Находим транзакцию отката для текущей среди тех, что идут после неё
+    const revertTransaction = find(transactions, (transaction2) => {
+      const isRevert = transaction1.amount === -transaction2.amount
+        && transaction1.name === transaction2.name
+        && transaction1.category === transaction2.category
+        && transaction1.currency === transaction2.currency;
+      // Если нашли транзакцию отката
+      if (isRevert) {
+        // Проверяем не была ли она уже найдена для какой-нибудь из предыдущих транзакций
+        const isAlreadyFound = Boolean(find(
+          revertedPairs,
+          (reverted) => isEqual(transaction2, reverted),
+        ));
+        // Если нет, то запоминаем индекс этой транзакции
+        return !isAlreadyFound;
+      }
+      return false;
+    }, index1 + 1);
+    // Если нашли транзакцию отката
+    if (revertTransaction) {
+      // Запоминаем обе транзакции
+      revertedPairs.push(transaction1, revertTransaction);
     }
-
-    return result;
   });
 
-  const filteredTransactions = duplicateFreeTransactions.filter((transaction) => {
-    return !duplicatePairs.some((duplicateTransaction) => {
+  const filteredTransactions = transactions.filter((transaction) => {
+    return !revertedPairs.some((duplicateTransaction) => {
       return isEqual(transaction, duplicateTransaction);
     });
   });
 
-  console.log(`Отфильтровано ${duplicatePairs.length} транзакций с возвратом`);
-  return filteredTransactions;
+  console.log(`Отфильтровано ${revertedPairs.length} транзакций с возвратом`);
+  return {
+    transactions: filteredTransactions,
+    duplicates: revertedPairs,
+  };
 };
 
 const start = async () => {
   const filePath = await chooseFile();
   const dataProvider = getDataProvider(filePath);
   const allTransactions = await dataProvider.getDataFromFile(filePath);
-  const transactions = filterRevertTransactions(allTransactions);
+  const { transactions, duplicates } = filterRevertTransactions(allTransactions);
   const tableIncome = getTableTransactions(transactions.filter((transaction) => transaction.amount > 0));
   const tableExpenses = getTableTransactions(transactions.filter((transaction) => transaction.amount < 0));
 
   await fsExtra.ensureDir('out');
+  await fsExtra.writeFile('out/duplicates.json', JSON.stringify(duplicates, null, 2));
   await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
   await fsExtra.writeFile('out/tableIncome.json', JSON.stringify(tableIncome, null, 2));
   await fsExtra.writeFile('out/tableExpenses.json', JSON.stringify(tableExpenses, null, 2));
