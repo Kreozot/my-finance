@@ -4,7 +4,9 @@ import fsExtra from 'fs-extra';
 import path from 'path';
 import {
   groupBy, mapValues, values, flatten,
+  uniqWith, isEqual,
 } from 'lodash';
+
 import {
   DataProvider, DateSumMap, TableTransaction, Transaction,
 } from './types';
@@ -38,6 +40,7 @@ const convertMoney = (amount: number, currency: string): number => {
   return amount;
 };
 
+// TODO: Группировать по категории и имени в один проход
 const getTableTransactions = (originalTransactions: Transaction[]): TableTransaction[] => {
   const categoryGroups = groupBy(originalTransactions, 'category');
   const categoryNameGroups = mapValues(categoryGroups, (categoryGroup, category): TableTransaction[] => {
@@ -73,10 +76,36 @@ const getDataProvider = (filePath: string): DataProvider => {
   }
 };
 
+const filterRevertTransactions = (transactions: Transaction[]): Transaction[] => {
+  const duplicatePairs: Transaction[] = [];
+  const duplicateFreeTransactions = uniqWith(transactions, (transaction1, transaction2) => {
+    const result = transaction1.amount === -transaction2.amount
+      && transaction1.name === transaction2.name
+      && transaction1.category === transaction2.category
+      && transaction1.currency === transaction2.currency;
+
+    if (result) {
+      duplicatePairs.push({ ...transaction2 });
+    }
+
+    return result;
+  });
+
+  const filteredTransactions = duplicateFreeTransactions.filter((transaction) => {
+    return !duplicatePairs.some((duplicateTransaction) => {
+      return isEqual(transaction, duplicateTransaction);
+    });
+  });
+
+  console.log(`Отфильтровано ${duplicatePairs.length} транзакций с возвратом`);
+  return filteredTransactions;
+};
+
 const start = async () => {
   const filePath = await chooseFile();
   const dataProvider = getDataProvider(filePath);
-  const transactions = await dataProvider.getDataFromFile(filePath);
+  const allTransactions = await dataProvider.getDataFromFile(filePath);
+  const transactions = filterRevertTransactions(allTransactions);
   const tableIncome = getTableTransactions(transactions.filter((transaction) => transaction.amount > 0));
   const tableExpenses = getTableTransactions(transactions.filter((transaction) => transaction.amount < 0));
 
