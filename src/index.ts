@@ -37,25 +37,6 @@ const convertMoney = (amount: number, currency: string): number => {
   return amount;
 }
 
-const groupTransactions = (transactions: Transaction[]): GroupedTransactions => {
-  const dateGroups = groupBy(transactions, 'dateKey');
-  const dateCategoryGroups = mapValues(dateGroups, (dateGroup) => {
-    const categoryGroups = groupBy(dateGroup, 'category');
-    const categoryNameGroups = mapValues(categoryGroups, (categoryGroup) => {
-      const tempGroups = groupBy(categoryGroup, 'name');
-      return mapValues(tempGroups, (transactions) => {
-        const sum = transactions.reduce((result, transaction) => {
-          return result + convertMoney(transaction.amount, transaction.currency);
-        }, 0);
-        return Math.round(sum);
-      });
-    });
-    return categoryNameGroups;
-  });
-
-  return dateCategoryGroups;
-};
-
 const getTableTransactions = (transactions: Transaction[]): TableTransaction[] => {
   const categoryGroups = groupBy(transactions, 'category');
   const categoryNameGroups = mapValues(categoryGroups, (categoryGroup, category): TableTransaction[] => {
@@ -95,14 +76,11 @@ const start = async () => {
   const filePath = await chooseFile();
   const dataProvider = getDataProvider(filePath);
   const transactions = await dataProvider.getDataFromFile(filePath);
-  // const groups = groupTransactions(transactions);
   const tableIncome = getTableTransactions(transactions.filter((transaction) => transaction.amount > 0));
   const tableExpenses = getTableTransactions(transactions.filter((transaction) => transaction.amount < 0));
 
-  // await exportData(groups);
   await fsExtra.ensureDir('out');
   await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
-  // await fsExtra.writeFile('out/groups.json', JSON.stringify(groups, null, 2));
   await fsExtra.writeFile('out/tableIncome.json', JSON.stringify(tableIncome, null, 2));
   await fsExtra.writeFile('out/tableExpenses.json', JSON.stringify(tableExpenses, null, 2));
 };
