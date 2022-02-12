@@ -24,8 +24,8 @@ const NAME_TRANSFER_SBP_REGEXP = /Перевод [0-9A-Z]+ через Систе
 function mapCsvRow(row: string[]): Transaction {
   const dateObj = dayjs(row[CSV_FIELDS.DATE], 'DD.MM.YY');
   const amount = parseFloat(row[CSV_FIELDS.INCOME_AMOUNT])
-    ? parseFloat(`${row[CSV_FIELDS.INCOME_AMOUNT]}.${row[CSV_FIELDS.EXPENSE_AMOUNT]}`)
-    : -parseFloat(row[CSV_FIELDS.EXPENSE_AMOUNT]);
+    ? parseFloat(row[CSV_FIELDS.INCOME_AMOUNT].replace(/,/g, '.'))
+    : -parseFloat(row[CSV_FIELDS.EXPENSE_AMOUNT].replace(/,/g, '.'));
   let name = row[CSV_FIELDS.NAME];
   let category = 'Не определено';
   let match;
