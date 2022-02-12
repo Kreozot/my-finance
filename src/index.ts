@@ -4,7 +4,7 @@ import fsExtra from 'fs-extra';
 import path from 'path';
 import {
   groupBy, mapValues, values, flatten,
-  isEqual, find,
+  isEqual, find, unionWith,
 } from 'lodash';
 
 import {
@@ -25,7 +25,7 @@ const chooseFile = async () => {
       {
         type: 'fuzzypath',
         name: 'filePath',
-        message: 'Выберите OFX или CSV файл',
+        message: 'Выберите OFX, PDF или CSV файл',
         itemType: 'file',
         rootPath: 'data/',
         excludeFilter: (nodePath: string) => !FILE_NAME_REGEXP.test(nodePath),
@@ -121,17 +121,36 @@ const filterRevertTransactions = (transactions: Transaction[]) => {
   };
 };
 
+const loadExistingTransactions = async (): Promise<Transaction[]> => {
+  try {
+    const file = await fsExtra.readFile('out/transactions.json');
+    return JSON.parse(String(file)) as Transaction[];
+  } catch (err) {
+    console.warn(err);
+  }
+  return [];
+};
+
 const start = async () => {
   const filePath = await chooseFile();
   const dataProvider = getDataProvider(filePath);
-  const allTransactions = await dataProvider.getDataFromFile(filePath);
-  const { transactions, duplicates } = filterRevertTransactions(allTransactions);
-  const tableIncome = getTableTransactions(transactions.filter((transaction) => transaction.amount > 0));
-  const tableExpenses = getTableTransactions(transactions.filter((transaction) => transaction.amount < 0));
+  console.log('Загрузка предыдущих данных');
+  const existingTransactions = await loadExistingTransactions();
+  console.log('Парсинг файла', filePath);
+  const newTransactions = await dataProvider.getDataFromFile(filePath);
+  console.log('Поиск и фильтрация возвращённых транзакций');
+  const { transactions, duplicates } = filterRevertTransactions(newTransactions);
+  console.log('Объединение данных');
+  const allTransactions = unionWith(existingTransactions, transactions, isEqual);
 
+  console.log('Разделение доходов и расходов');
+  const tableIncome = getTableTransactions(allTransactions.filter((transaction) => transaction.amount > 0));
+  const tableExpenses = getTableTransactions(allTransactions.filter((transaction) => transaction.amount < 0));
+
+  console.log('Сохранение данных');
   await fsExtra.ensureDir('out');
   await fsExtra.writeFile('out/duplicates.json', JSON.stringify(duplicates, null, 2));
-  await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
+  await fsExtra.writeFile('out/transactions.json', JSON.stringify(allTransactions, null, 2));
   await fsExtra.writeFile('out/tableIncome.json', JSON.stringify(tableIncome, null, 2));
   await fsExtra.writeFile('out/tableExpenses.json', JSON.stringify(tableExpenses, null, 2));
 };
