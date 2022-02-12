@@ -1,15 +1,22 @@
 {
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts"
+  ],
   "compilerOptions": {
-    "typeRoots": ["./typings"],
+    "typeRoots": [
+      "./typings"
+    ],
     "outDir": "./dist",
     "allowJs": false,
     "moduleResolution": "node",
     "sourceMap": true,
     "noImplicitAny": true,
     "allowSyntheticDefaultImports": true,
-	  "esModuleInterop": true,
+    "esModuleInterop": true,
     "target": "es5",
-    "lib": ["ES2015"]
+    "lib": [
+      "ES2015"
+    ],
+    "downlevelIteration": true
   }
 }

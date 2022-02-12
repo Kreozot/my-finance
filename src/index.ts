@@ -4,7 +4,7 @@ import fsExtra from 'fs-extra';
 import path from 'path';
 import {
   groupBy, mapValues, values, flatten,
-  uniqWith, isEqual, find,
+  isEqual, find,
 } from 'lodash';
 
 import {
@@ -12,10 +12,12 @@ import {
 } from './types';
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { TinkoffOfxDataProvider } from './providers/tinkoffOfx';
+import { SberbankPdfDataProvider } from './providers/sberbankPdf';
 
 inquirer.registerPrompt('fuzzypath', inquirerFuzzyPath);
 
 const OUT_CURRENCY = 'RUB';
+const FILE_NAME_REGEXP = /\.(ofx|csv|pdf)$/;
 
 const chooseFile = async () => {
   const { filePath } = await inquirer
@@ -26,7 +28,7 @@ const chooseFile = async () => {
         message: 'Выберите OFX или CSV файл',
         itemType: 'file',
         rootPath: 'data/',
-        excludeFilter: (nodePath: string) => !/\.(ofx|csv)$/.test(nodePath),
+        excludeFilter: (nodePath: string) => !FILE_NAME_REGEXP.test(nodePath),
       },
     ]) as any;
   return path.join(filePath);
@@ -71,6 +73,8 @@ const getDataProvider = (filePath: string): DataProvider => {
       return new TinkoffOfxDataProvider();
     case '.csv':
       return new TinkoffCsvDataProvider();
+    case '.pdf':
+      return new SberbankPdfDataProvider();
     default:
       throw new Error('Поддерживаются только OFX или CSV файлы');
   }
