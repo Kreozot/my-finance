@@ -17,6 +17,9 @@ const CSV_FIELDS = {
   EXPENSE_AMOUNT: 7,
 };
 const NAME_TRANSFER_REGEXP = /[0-9]+\++[0-9]+\s+[0-9]+\\(?:[A-Za-z0-9 ]+\\){3}([A-Za-z0-9 ]+ )/;
+const NAME_BASE_REGEXP = /(.+)Основание [0-9A-Z]+\s/;
+const NAME_PERCENT_REGEXP = /(Выплата % на ср\.остаток) /;
+const NAME_TRANSFER_SBP_REGEXP = /Перевод [0-9A-Z]+ через Систему быстрых платежей (\S+\s\+?[0-9]+)/;
 
 function mapCsvRow(row: string[]): Transaction {
   const dateObj = dayjs(row[CSV_FIELDS.DATE], 'DD.MM.YY');
@@ -25,11 +28,24 @@ function mapCsvRow(row: string[]): Transaction {
     : -parseFloat(row[CSV_FIELDS.EXPENSE_AMOUNT]);
   let name = row[CSV_FIELDS.NAME];
   let category = 'Не определено';
-  const transferMatch = name.match(NAME_TRANSFER_REGEXP);
-  if (transferMatch) {
-    category = 'Переводы на карту';
-    name = `Перевод в ${transferMatch[1].trim()}`;
+  let match;
+  /* eslint-disable no-cond-assign */
+  if (match = name.match(NAME_TRANSFER_REGEXP)) {
+    category = 'Переводы';
+    name = `Перевод в ${match[1].trim()}`;
+  } else if (match = name.match(NAME_BASE_REGEXP)) {
+    category = 'Заработная плата';
+    name = match[1].trim();
+  } else if (match = name.match(NAME_PERCENT_REGEXP)) {
+    category = 'Прочее';
+    name = match[1].trim();
+  } else if (name === 'Перевод денежных средств') {
+    category = 'Переводы';
+  } else if (match = name.match(NAME_TRANSFER_SBP_REGEXP)) {
+    category = 'Переводы';
+    name = `Перевод через СБП ${match[1].trim()}`;
   }
+  /* eslint-enable no-cond-assign */
   return {
     date: dateObj.toDate(),
     dateKey: dateObj.format('YYYY-MM'),
