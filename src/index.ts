@@ -4,8 +4,9 @@ import fsExtra from 'fs-extra';
 import path from 'path';
 import {
   groupBy, mapValues, values, flatten,
-  isEqual, find, unionWith,
+  isEqual, find, unionBy,
 } from 'lodash';
+import getHash from 'object-hash';
 
 import {
   DataProvider, DateSumMap, TableTransaction, Transaction,
@@ -123,12 +124,20 @@ const filterRevertTransactions = (transactions: Transaction[]) => {
 
 const loadExistingTransactions = async (): Promise<Transaction[]> => {
   try {
-    const file = await fsExtra.readFile('out/transactions.json');
+    const file = await fsExtra.readFile('out/allTransactions.json');
     return JSON.parse(String(file)) as Transaction[];
   } catch (err) {
     console.warn(err);
   }
   return [];
+};
+
+const addHash = (transactions: Transaction[]): Transaction[] => {
+  transactions.forEach((transaction) => {
+    // eslint-disable-next-line no-param-reassign
+    transaction.hash = getHash(transaction, { algorithm: 'sha1' });
+  });
+  return transactions;
 };
 
 const start = async () => {
@@ -138,10 +147,11 @@ const start = async () => {
   const existingTransactions = await loadExistingTransactions();
   console.log('Парсинг файла', filePath);
   const newTransactions = await dataProvider.getDataFromFile(filePath);
+  addHash(newTransactions);
   console.log('Поиск и фильтрация возвращённых транзакций');
   const { transactions, duplicates } = filterRevertTransactions(newTransactions);
   console.log('Объединение данных');
-  const allTransactions = unionWith(existingTransactions, transactions, isEqual);
+  const allTransactions = unionBy(existingTransactions, transactions, 'hash');
 
   console.log('Разделение доходов и расходов');
   const tableIncome = getTableTransactions(allTransactions.filter((transaction) => transaction.amount > 0));
@@ -150,7 +160,8 @@ const start = async () => {
   console.log('Сохранение данных');
   await fsExtra.ensureDir('out');
   await fsExtra.writeFile('out/duplicates.json', JSON.stringify(duplicates, null, 2));
-  await fsExtra.writeFile('out/transactions.json', JSON.stringify(allTransactions, null, 2));
+  await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
+  await fsExtra.writeFile('out/allTransactions.json', JSON.stringify(allTransactions, null, 2));
   await fsExtra.writeFile('out/tableIncome.json', JSON.stringify(tableIncome, null, 2));
   await fsExtra.writeFile('out/tableExpenses.json', JSON.stringify(tableExpenses, null, 2));
 };

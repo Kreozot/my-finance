@@ -1,4 +1,5 @@
 export type Transaction = {
+  hash?: string,
   /** Дата и время */
   date: Date,
   /** Ключ даты для группировки данных (год-месяц) */
@@ -18,17 +19,17 @@ export type TransactionsSum = {
   sum: number,
   /** Код валюты */
   currency: string,
-}
+};
 
 export interface DataProvider {
   getDataFromFile: (filePath: string) => Promise<Transaction[]>;
-};
+}
 
 export type GroupedTransactions = {
   [dateKey: string]: {
-      [category: string]: {
-          [name: string]: number,
-      },
+    [category: string]: {
+      [name: string]: number,
+    },
   },
 };
 
