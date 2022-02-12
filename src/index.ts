@@ -14,6 +14,7 @@ import {
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { TinkoffOfxDataProvider } from './providers/tinkoffOfx';
 import { SberbankPdfDataProvider } from './providers/sberbankPdf';
+import { AlfabankCsvDataProvider } from './providers/alfabankCsv';
 
 inquirer.registerPrompt('fuzzypath', inquirerFuzzyPath);
 
@@ -68,16 +69,26 @@ const getTableTransactions = (originalTransactions: Transaction[]): TableTransac
   return flatten(values(categoryNameGroups));
 };
 
-const getDataProvider = (filePath: string): DataProvider => {
+const getDataProvider = async (filePath: string): Promise<DataProvider> => {
   switch (path.extname(filePath)) {
     case '.ofx':
+      console.log('Tinkoff OFX');
       return new TinkoffOfxDataProvider();
     case '.csv':
-      return new TinkoffCsvDataProvider();
+      if (await TinkoffCsvDataProvider.checkFile(filePath)) {
+        console.log('Tinkoff CSV');
+        return new TinkoffCsvDataProvider();
+      }
+      if (await AlfabankCsvDataProvider.checkFile(filePath)) {
+        console.log('Alfabank OFX');
+        return new AlfabankCsvDataProvider();
+      }
+      throw new Error('Неизвестный формат CSV-файла');
     case '.pdf':
+      console.log('Sberbank PDF');
       return new SberbankPdfDataProvider();
     default:
-      throw new Error('Поддерживаются только OFX или CSV файлы');
+      throw new Error('Поддерживаются только OFX, PDF или CSV файлы');
   }
 };
 
@@ -142,7 +153,7 @@ const addHash = (transactions: Transaction[]): Transaction[] => {
 
 const start = async () => {
   const filePath = await chooseFile();
-  const dataProvider = getDataProvider(filePath);
+  const dataProvider = await getDataProvider(filePath);
   console.log('Загрузка предыдущих данных');
   const existingTransactions = await loadExistingTransactions();
   console.log('Парсинг файла', filePath);
