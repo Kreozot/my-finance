@@ -3,13 +3,12 @@ import inquirerFuzzyPath from 'inquirer-fuzzy-path';
 import fsExtra from 'fs-extra';
 import path from 'path';
 import {
-  groupBy, mapValues, values, flatten,
   isEqual, find, unionBy,
 } from 'lodash';
 import getHash from 'object-hash';
 
 import {
-  DataProvider, DateSumMap, TableTransaction, Transaction,
+  DataProvider, Transaction,
 } from './types';
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { TinkoffOfxDataProvider } from './providers/tinkoffOfx';
@@ -18,7 +17,6 @@ import { AlfabankCsvDataProvider } from './providers/alfabankCsv';
 
 inquirer.registerPrompt('fuzzypath', inquirerFuzzyPath);
 
-const OUT_CURRENCY = 'RUB';
 const FILE_NAME_REGEXP = /\.(ofx|csv|pdf)$/;
 
 const chooseFile = async () => {
@@ -34,39 +32,6 @@ const chooseFile = async () => {
       },
     ]) as any;
   return path.join(filePath);
-};
-
-const convertMoney = (amount: number, currency: string): number => {
-  if (currency !== OUT_CURRENCY) {
-    console.warn(`Отличающаяся валюта ${currency}`);
-  }
-  // TODO: Конвертация валюты
-  return amount;
-};
-
-// TODO: Группировать по категории и имени в один проход
-const getTableTransactions = (originalTransactions: Transaction[]): TableTransaction[] => {
-  const categoryGroups = groupBy(originalTransactions, 'category');
-  const categoryNameGroups = mapValues(categoryGroups, (categoryGroup, category): TableTransaction[] => {
-    const nameGroups = groupBy(categoryGroup, 'name');
-    const nameDateGroups = mapValues(nameGroups, (nameGroup, name): TableTransaction => {
-      const dateGroups = groupBy(nameGroup, 'dateKey');
-      const transactionsSummary: DateSumMap = mapValues(dateGroups, (transactions): number => {
-        const sum = transactions.reduce((result, transaction) => {
-          return result + convertMoney(transaction.amount, transaction.currency);
-        }, 0);
-        return Math.round(sum);
-      });
-      return {
-        category,
-        name,
-        transactions: transactionsSummary,
-      };
-    });
-    return values(nameDateGroups);
-  });
-
-  return flatten(values(categoryNameGroups));
 };
 
 const getDataProvider = async (filePath: string): Promise<DataProvider> => {
@@ -164,18 +129,11 @@ const start = async () => {
   console.log('Объединение данных');
   const allTransactions = unionBy(existingTransactions, transactions, 'hash');
 
-  console.log('Разделение доходов и расходов');
-  const tableIncome = getTableTransactions(allTransactions.filter((transaction) => transaction.amount > 0));
-  const tableExpenses = getTableTransactions(allTransactions.filter((transaction) => transaction.amount < 0));
-
   console.log('Сохранение данных');
   await fsExtra.ensureDir('out');
   await fsExtra.writeFile('out/duplicates.json', JSON.stringify(duplicates, null, 2));
   await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
   await fsExtra.writeFile('out/allTransactions.json', JSON.stringify(allTransactions, null, 2));
-  await fsExtra.writeFile('out/tableIncome.json', JSON.stringify(tableIncome, null, 2));
-  await fsExtra.writeFile('out/tableExpenses.json', JSON.stringify(tableExpenses, null, 2));
 };
 
 start();
-// exportData({});
