@@ -2,7 +2,7 @@ import parsePdf from 'pdf-parse';
 import fsExtra from 'fs-extra';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Transaction, DataProvider } from '../types';
+import { Transaction, DataProvider, Bank } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -20,6 +20,7 @@ function mapMatch(match: string[]): Transaction {
     currency: 'RUB',
     category: match[3],
     name: nameStr,
+    bank: Bank.Sberbank,
   };
 }
 

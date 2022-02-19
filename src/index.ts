@@ -131,9 +131,11 @@ const start = async () => {
 
   console.log('Сохранение данных');
   await fsExtra.ensureDir('out');
-  await fsExtra.writeFile('out/duplicates.json', JSON.stringify(duplicates, null, 2));
-  await fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2));
-  await fsExtra.writeFile('out/allTransactions.json', JSON.stringify(allTransactions, null, 2));
+  await Promise.all([
+    fsExtra.writeFile('out/duplicates.json', JSON.stringify(duplicates, null, 2)),
+    fsExtra.writeFile('out/transactions.json', JSON.stringify(transactions, null, 2)),
+    fsExtra.writeFile('out/allTransactions.json', JSON.stringify(allTransactions, null, 2)),
+  ]);
 };
 
 start();

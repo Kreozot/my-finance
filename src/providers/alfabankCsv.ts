@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import fsExtra from 'fs-extra';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Transaction, DataProvider } from '../types';
+import { Transaction, DataProvider, Bank } from '../types';
 
 dayjs.extend(customParseFormat);
 const parseCsv = promisify(parse) as (csv: string, params: any) => Promise<string[][]>;
@@ -16,43 +16,21 @@ const CSV_FIELDS = {
   INCOME_AMOUNT: 6,
   EXPENSE_AMOUNT: 7,
 };
-const NAME_TRANSFER_REGEXP = /[0-9]+\++[0-9]+\s+[0-9]+\\(?:[A-Za-z0-9 ]+\\){3}([A-Za-z0-9 ]+ )/;
-const NAME_BASE_REGEXP = /(.+)Основание [0-9A-Z]+\s/;
-const NAME_PERCENT_REGEXP = /(Выплата % на ср\.остаток) /;
-const NAME_TRANSFER_SBP_REGEXP = /Перевод [0-9A-Z]+ через Систему быстрых платежей (\S+\s\+?[0-9]+)/;
 
 function mapCsvRow(row: string[]): Transaction {
   const dateObj = dayjs(row[CSV_FIELDS.DATE], 'DD.MM.YY');
   const amount = parseFloat(row[CSV_FIELDS.INCOME_AMOUNT])
     ? parseFloat(row[CSV_FIELDS.INCOME_AMOUNT].replace(/,/g, '.'))
     : -parseFloat(row[CSV_FIELDS.EXPENSE_AMOUNT].replace(/,/g, '.'));
-  let name = row[CSV_FIELDS.NAME];
-  let category = 'Не определено';
-  let match;
-  /* eslint-disable no-cond-assign */
-  if (match = name.match(NAME_TRANSFER_REGEXP)) {
-    category = 'Переводы';
-    name = `Перевод в ${match[1].trim()}`;
-  } else if (match = name.match(NAME_BASE_REGEXP)) {
-    category = 'Заработная плата';
-    name = match[1].trim();
-  } else if (match = name.match(NAME_PERCENT_REGEXP)) {
-    category = 'Прочее';
-    name = match[1].trim();
-  } else if (name === 'Перевод денежных средств') {
-    category = 'Переводы';
-  } else if (match = name.match(NAME_TRANSFER_SBP_REGEXP)) {
-    category = 'Переводы';
-    name = `Перевод через СБП ${match[1].trim()}`;
-  }
-  /* eslint-enable no-cond-assign */
+
   return {
     date: dateObj.toDate(),
     dateKey: dateObj.format('YYYY-MM'),
     amount,
     currency: row[CSV_FIELDS.CURRENCY] === 'RUR' ? 'RUB' : row[CSV_FIELDS.CURRENCY],
-    category,
-    name,
+    category: 'Не определено',
+    name: row[CSV_FIELDS.NAME],
+    bank: Bank.Alfabank,
   };
 }
 

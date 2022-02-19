@@ -12,6 +12,8 @@ export type Transaction = {
   category: string,
   /** Код валюты */
   currency: string,
+  /** Банк, где выполнена операция */
+  bank: Bank,
 };
 
 export type TransactionsSum = {
@@ -42,3 +44,9 @@ export type TableTransaction = {
   name: string,
   transactions: DateSumMap,
 };
+
+export enum Bank {
+  Tinkoff = 'tinkoff',
+  Sberbank = 'sberbank',
+  Alfabank = 'alfabank',
+}

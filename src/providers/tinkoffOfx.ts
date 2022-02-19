@@ -1,8 +1,8 @@
-import ofx from 'ofx';
+import ofxModule from 'ofx';
 import fsExtra from 'fs-extra';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Transaction, DataProvider } from '../types';
+import { Transaction, DataProvider, Bank } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -12,7 +12,7 @@ const loadFile = async (filePath: string) => {
 };
 
 const parseOfx = async (ofxString: string) => {
-  return ofx.parse(ofxString) as Ofx;
+  return ofxModule.parse(ofxString) as Ofx;
 };
 
 const loadOfx = async (filePath: string) => {
@@ -23,7 +23,7 @@ const loadOfx = async (filePath: string) => {
 
 const parseDateTime = (dateTimeStr: string) => {
   const modifiedDateTimeStr = dateTimeStr.replace(/\[([+-]?)([0-9]+):[A-Z]+\]$/, ' $1');
-  return dayjs(modifiedDateTimeStr, 'YYYYMMDDHHmmss.SSS ZZ'); //"20220108131638.000[+3:MSK]"
+  return dayjs(modifiedDateTimeStr, 'YYYYMMDDHHmmss.SSS ZZ'); // "20220108131638.000[+3:MSK]"
 };
 
 const parseAmount = (amountStr: string) => {
@@ -40,6 +40,7 @@ const loadTransactions = (ofxTransactions: OfxTransaction[]): Transaction[] => {
       name: STMTTRN.NAME,
       category: STMTTRN.MEMO,
       currency: STMTTRN.CURRENCY.CURSYM,
+      bank: Bank.Tinkoff,
     } as Transaction;
   });
 };

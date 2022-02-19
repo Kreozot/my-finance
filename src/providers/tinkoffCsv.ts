@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import fsExtra from 'fs-extra';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Transaction, DataProvider } from '../types';
+import { Transaction, DataProvider, Bank } from '../types';
 
 dayjs.extend(customParseFormat);
 const parseCsv = promisify(parse) as (csv: string, params: any) => Promise<string[][]>;
@@ -28,6 +28,7 @@ function mapCsvRow(row: string[]): Transaction {
     currency: row[CSV_FIELDS.CURRENCY],
     category: row[CSV_FIELDS.CATEGORY],
     name: row[CSV_FIELDS.DESCRIPTION],
+    bank: Bank.Tinkoff,
   };
 }
 
