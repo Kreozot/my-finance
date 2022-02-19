@@ -9,6 +9,7 @@
     "outDir": "./dist",
     "allowJs": false,
     "moduleResolution": "node",
+    "module": "CommonJS",
     "sourceMap": true,
     "noImplicitAny": true,
     "allowSyntheticDefaultImports": true,
