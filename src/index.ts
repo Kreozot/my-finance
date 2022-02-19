@@ -79,7 +79,9 @@ const loadExistingTransactions = async (): Promise<Transaction[]> => {
     const file = await fsExtra.readFile('out/allTransactions.json');
     return JSON.parse(String(file)) as Transaction[];
   } catch (err) {
-    console.warn(err);
+    if (err.code !== 'ENOENT') {
+      console.warn(err);
+    }
   }
   return [];
 };
@@ -111,10 +113,10 @@ const getTransactionsFromFile = async (filePath: string): Promise<Transaction[]>
   console.log('Сохранение данных');
   const name = path.basename(filePath);
   await fsExtra.ensureDir('out');
-  await Promise.all([
-    fsExtra.writeFile(`out/duplicates-${name}.json`, JSON.stringify(duplicates, null, 2)),
-    fsExtra.writeFile(`out/transactions-${name}.json`, JSON.stringify(transactions, null, 2)),
-  ]);
+  if (duplicates.length) {
+    await fsExtra.writeFile(`out/duplicates-${name}.json`, JSON.stringify(duplicates, null, 2));
+  }
+  await fsExtra.writeFile(`out/transactions-${name}.json`, JSON.stringify(transactions, null, 2));
   return transactions;
 };
 
