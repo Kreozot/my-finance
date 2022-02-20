@@ -6,13 +6,15 @@ import { Transaction, DataProvider, Bank } from '../types';
 
 dayjs.extend(customParseFormat);
 
-const PDF_TEXT_ITEM_REGEXP = /([0-9]{2}.[0-9]{2}.[0-9]{4})([0-9]{2}:[0-9]{2})\n[0-9]{2}.[0-9]{2}.[0-9]+\n(.+)\n(.+\n)?(.+\n)?(\+?[0-9 ]+,[0-9]+)/gm;
+// eslint-disable-next-line no-irregular-whitespace -- Есть странный пробел в сумме в выгрузке
+const PDF_TEXT_ITEM_REGEXP = /([0-9]{2}.[0-9]{2}.[0-9]{4})([0-9]{2}:[0-9]{2})\n[0-9]{2}.[0-9]{2}.[0-9]+-?\n(.+)\n(.+\n)?(.+\n)?(\+?[0-9\s ]+,[0-9]+)\n(\+?[0-9\s ]+,[0-9]+\s\$)?\n/gm;
 
 function mapMatch(match: string[]): Transaction {
   const dateObj = dayjs(`${match[1]} ${match[2]}`, 'DD.MM.YYYY HH:mm');
   const nameStr = `${match[4].trim()} ${(match[5] || '').trim()}`.trim();
   const amountMultiplier = match[6][0] === '+' ? 1 : -1;
-  const amountStr = match[6].replace(/[ +]/g, '').replace(/,/g, '.');
+  // eslint-disable-next-line no-irregular-whitespace -- Тот самый странный пробел
+  const amountStr = match[6].replace(/[  +]/g, '').replace(/,/g, '.');
   return {
     date: dateObj.toDate(),
     dateKey: dateObj.format('YYYY-MM'),
@@ -32,6 +34,7 @@ function getData(rawData: parsePdf.Result): Transaction[] {
 async function loadPdf(filePath: string) {
   const pdfFile = await fsExtra.readFile(filePath);
   const pdf = await parsePdf(pdfFile);
+  // fsExtra.writeFile(`${filePath}.txt`, pdf.text);
   return pdf;
 }
 
