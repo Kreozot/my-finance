@@ -27,14 +27,15 @@ function mapMatch(match: string[]): Transaction {
 }
 
 function getData(rawData: parsePdf.Result): Transaction[] {
-  const matches = [...rawData.text.matchAll(PDF_TEXT_ITEM_REGEXP)];
+  const text = rawData.text.replace(/\n\n\nСтраница/gm, '\nСтраница');
+  const matches = [...text.matchAll(PDF_TEXT_ITEM_REGEXP)];
   return matches.map(mapMatch);
 }
 
 async function loadPdf(filePath: string) {
   const pdfFile = await fsExtra.readFile(filePath);
   const pdf = await parsePdf(pdfFile);
-  // fsExtra.writeFile(`${filePath}.txt`, pdf.text);
+  fsExtra.writeFile(`${filePath}.txt`, pdf.text);
   return pdf;
 }
 
