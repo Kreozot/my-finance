@@ -12,22 +12,30 @@ import {
 import { TinkoffCsvDataProvider } from './providers/tinkoffCsv';
 import { SberbankPdfDataProvider } from './providers/sberbankPdf';
 import { AlfabankCsvDataProvider } from './providers/alfabankCsv';
+import { RsRaiffeisenPdfProvider } from './providers/rsRaiffeisenPdf';
 
 const getDataProvider = async (filePath: string): Promise<DataProvider> => {
   switch (path.extname(filePath)) {
     case '.csv':
       if (await TinkoffCsvDataProvider.checkFile(filePath)) {
-        console.log('Tinkoff CSV');
+        console.log('Tinkoff Russia CSV');
         return new TinkoffCsvDataProvider();
       }
       if (await AlfabankCsvDataProvider.checkFile(filePath)) {
-        console.log('Alfabank CSV');
+        console.log('Alfabank Russia CSV');
         return new AlfabankCsvDataProvider();
       }
       throw new Error('Неизвестный формат CSV-файла');
     case '.pdf':
-      console.log('Sberbank PDF');
-      return new SberbankPdfDataProvider();
+      if (await SberbankPdfDataProvider.checkFile(filePath)) {
+        console.log('Sberbank Russia PDF');
+        return new SberbankPdfDataProvider();
+      }
+      if (await RsRaiffeisenPdfProvider.checkFile(filePath)) {
+        console.log('Raiffeisen Serbia PDF');
+        return new RsRaiffeisenPdfProvider();
+      }
+      throw new Error('Неизвестный формат PDF-файла');
     default:
       throw new Error('Поддерживаются только PDF или CSV файлы');
   }

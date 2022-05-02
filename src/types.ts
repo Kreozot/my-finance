@@ -49,4 +49,5 @@ export enum Bank {
   Tinkoff = 'tinkoff',
   Sberbank = 'sberbank',
   Alfabank = 'alfabank',
+  Raiffeisen = 'raiffeisen',
 }

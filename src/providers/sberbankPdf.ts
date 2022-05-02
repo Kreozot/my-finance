@@ -7,7 +7,7 @@ import { Transaction, DataProvider, Bank } from '../types';
 dayjs.extend(customParseFormat);
 
 // eslint-disable-next-line no-irregular-whitespace -- Есть странный пробел в сумме в выгрузке
-const PDF_TEXT_ITEM_REGEXP = /([0-9]{2}.[0-9]{2}.[0-9]{4})([0-9]{2}:[0-9]{2})\n[0-9]{2}.[0-9]{2}.[0-9]+-?\n(.+)\n(.+\n)?(.+\n)?(\+?[0-9\s ]+,[0-9]+)\n(\+?[0-9\s ]+,[0-9]+\s\$)?\n/gm;
+const RECORD_REGEXP = /([0-9]{2}.[0-9]{2}.[0-9]{4})([0-9]{2}:[0-9]{2})\n[0-9]{2}.[0-9]{2}.[0-9]+-?\n(.+)\n(.+\n)?(.+\n)?(\+?[0-9\s ]+,[0-9]+)\n(\+?[0-9\s ]+,[0-9]+\s\$)?\n/gm;
 
 function mapMatch(match: string[]): Transaction {
   const dateObj = dayjs(`${match[1]} ${match[2]}`, 'DD.MM.YYYY HH:mm');
@@ -26,9 +26,9 @@ function mapMatch(match: string[]): Transaction {
   };
 }
 
-function getData(rawData: parsePdf.Result): Transaction[] {
-  const text = rawData.text.replace(/\n\n\nСтраница/gm, '\nСтраница');
-  const matches = [...text.matchAll(PDF_TEXT_ITEM_REGEXP)];
+function getData(rawData: string): Transaction[] {
+  const text = rawData.replace(/\n\n\nСтраница/gm, '\nСтраница');
+  const matches = [...text.matchAll(RECORD_REGEXP)];
   return matches.map(mapMatch);
 }
 
@@ -36,10 +36,15 @@ async function loadPdf(filePath: string) {
   const pdfFile = await fsExtra.readFile(filePath);
   const pdf = await parsePdf(pdfFile);
   fsExtra.writeFile(`${filePath}.txt`, pdf.text);
-  return pdf;
+  return pdf.text;
 }
 
 export class SberbankPdfDataProvider implements DataProvider {
+  static async checkFile(filePath: string): Promise<boolean> {
+    const pdf = await loadPdf(filePath);
+    return /Сформировано в СберБанк Онлайн/.test(pdf);
+  }
+
   async getDataFromFile(filePath: string): Promise<Transaction[]> {
     const pdf = await loadPdf(filePath);
     return getData(pdf);
